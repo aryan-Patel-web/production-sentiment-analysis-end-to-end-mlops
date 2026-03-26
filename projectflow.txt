@@ -1,0 +1,284 @@
+-------------------------Setting up project structure---------------------------
+
+1. Create repo, clone it in local
+2. Create a virtual environment named 'atlas' - conda create -n atlas python=3.10
+3. Activate the virtual environment - conda activate atlas
+4. pip install cookiecutter
+5. cookiecutter -c v1 https://github.com/drivendata/cookiecutter-data-science
+6. Rename src.models -> src.model
+7. git add - commit - push
+
+-------------------------Setup MLFlow on Dagshub---------------------------
+8. Go to: https://dagshub.com/dashboard
+9. Create > New Repo > Connect a repo > (Github) Connect > Select your repo > Connect
+10. Copy experiment tracking url and code snippet. (Also try: Go To MLFlow UI)
+11. pip install dagshub & mlflow
+
+12. Run the exp notebooks
+13. git add - commit - push
+
+14. dvc init
+15. create a local folder as "local_s3" (temporary work)
+16. on terminal - "dvc remote add -d mylocal local_s3"
+
+17. Add code to below files/folders inside src dir:
+    - logger
+    - data_ingestion.py
+    - data_preprocessing.py
+    - feature_engineering.py
+    - model_building.py
+    - model_evaluation.py
+    - register_model.py
+18. add file - dvc.yaml (till model evaluation.metrics)
+19. add file - params.yaml
+20. DVC pipeline is ready to run - dvc repro
+21. Once do - dvc status
+22. git add - commit - push
+
+23. Need to add S3 as remote storage - Create IAM User(keep cred) and S3 bucket
+24. pip install - dvc[s3] & awscli
+25. Checking/deleting dvc remote (optional) - [dvc remote list & dvc remote remove <name>] 
+26. Set aws cred - aws configure
+27. Add s3 as dvc remote storage - dvc remote add -d myremote s3://<bucket-name>
+
+28. Create new dir - flask_app | Inside that, add rest of the files and dir
+29. pip install flask and run the app (dvc push - to push data to S3)
+
+30. pip freeze > requirements.txt
+31. Add .github/workflows/ci.yaml file
+
+32. Create key token on Dagshub for auth: Go to dagshub repo > Your settings > Tokens > Generate new token
+    >> Please make sure to save token << >> capstone_test: 54b1d67648a9b1267ef906fsdfsd8b292f779f0<<
+    >> Add this auth token to github secret&var and update on ci file
+
+
+31. Add dir "tests"&"scripts" and files within. This will contain our test related scripts for CI.
+
+>>>>> Moving to Docker <<<<<
+32. pip install pipreqs
+33. cd flask_app & do "pipreqs . --force"
+34. Add dockerfile and start docker-desktop in background
+    Also before proceeding make sure: [switch the mlflow server setup to param version, change cmd on dockerfile]
+35. go to root dir and: "docker build -t capstone-app:latest ."
+36. Try running the image: "docker run -p 8888:5000 capstone-app:latest"
+    - This run will give 'OSError: capstone_test environment variable is not set'...obviously
+    - alternate: docker run -p 8888:5000 -e CAPSTONE_TEST=54b1d67648a9b1267ef906fsdfsd8b292f779f0 capstone-app:latest
+    - docker push youruser/capstone-app:latest (optional)
+    - optional: try to delete image locally and pull it from dockerhub and run (optional)
+
+37. Setup aws services for below secrets and variables:
+	AWS_ACCESS_KEY_ID
+	AWS_SECRET_ACCESS_KEY
+	AWS_REGION
+	ECR_REPOSITORY (capstone-proj)
+    AWS_ACCOUNT_ID
+   (Also add this permission to the IAM user: AmazonEC2ContainerRegistryFullAccess)
+
+38. Execute CICD pipeline till the stage where we build and push image to ECR.
+
+
+----------------------------------------------------------------------------------
+*********Setup required before moving to EKS deployment*********
+----------------------------------------------------------------------------------
+* Run the following in PowerShell to see the AWS CLI path being used: Get-Command aws
+If the path points to your Anaconda environment (e.g., C:\Users\Personal\anaconda3\...), it’s a conflicting installation.
+
+* Uninstall Python-Based AWS CLI(Remove the conflicting AWS CLI from your Python environment): pip uninstall awscli
+* Verify it's uninstalled: aws --version
+* Update Environment Variables:
+> Make sure the .msi AWS CLI path is in your system PATH (usually installed at C:\Program Files\Amazon\AWSCLIV2\aws.exe).
+> Add it to your PATH if missing: Open Control Panel > System > Advanced System Settings > Environment Variables. Under "System Variables," find Path, and add the AWS CLI path: C:\Program Files\Amazon\AWSCLIV2\
+> Test AWS CLI Again: aws --version
+----------------------------------------------------------------------------------
+
+* Download kubectl: Invoke-WebRequest -Uri "https://dl.k8s.io/release/v1.28.2/bin/windows/amd64/kubectl.exe" -OutFile "kubectl.exe"
+* Locate the Download: Get-Location
+* Move kubectl.exe to a directory in your system PATH, such as C:\Windows\System32: Move-Item -Path .\kubectl.exe -Destination "C:\Windows\System32"
+* Test if kubectl is properly installed: kubectl version --client
+
+
+* Download eksctl: Invoke-WebRequest -Uri "https://github.com/weaveworks/eksctl/releases/download/v0.158.0/eksctl_Windows_amd64.zip" -OutFile "eksctl.zip"
+* Extract eksctl: Expand-Archive -Path .\eksctl.zip -DestinationPath .
+* Move the extracted eksctl.exe file to C:\Windows\System32 or any folder in your system PATH: Move-Item -Path .\eksctl.exe -Destination "C:\Windows\System32\eksctl.exe"
+----------------------------------------------------------------------------------
+* Verify AWS CLI: aws --version
+* Verify kubectl: kubectl version --client
+* Verify eksctl: eksctl version
+----------------------------------------------------------------------------------
+
+39. Create an EKS cluster:
+    eksctl create cluster --name flask-app-cluster --region us-east-1 --nodegroup-name flask-app-nodes --node-type t3.small --nodes 1 --nodes-min 1 --nodes-max 1 --managed
+
+40. Update kubectl Config(Once the cluster is created, eksctl will automatically update your kubectl config file. However, you can verify and set it manually using:)
+aws eks --region us-east-1 update-kubeconfig --name flask-app-cluster (This ensures your kubectl is pointing to the correct cluster.)
+
+41. Check EKS Cluster Configuration Ensure you can access your EKS cluster by running
+    aws eks list-clusters
+
+42. Delete cluster(optional):
+    eksctl delete cluster --name flask-app-cluster --region us-east-1
+
+    Also, verify cluster deletion:
+    eksctl get cluster --region us-east-1
+
+43. Verify the cluster status:
+    aws eks --region us-east-1 describe-cluster --name flask-app-cluster --query "cluster.status"
+
+
+44. Check cluster connectivity:
+kubectl get nodes
+
+45. Check the namespaces:
+kubectl get namespaces
+
+46. Verify the deployment:
+kubectl get pods
+kubectl get svc
+
+47. Deploy the app on EKS via CICD pipeline 
+  >> edit ci.yaml, deployment.yaml, dockerfile
+  >> Also edit the security group for nodes and edit inbound rule for 5000 port
+
+
+48. Once the LoadBalancer service is up, get the external IP:
+kubectl get svc flask-app-service
+
+49. Try externa-ip:5000 directly on url or on terminal : curl http://external-ip:5000
+curl http://a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000
+
+
+
+
+
+
+>>>>>>>>>> Prometheus Server Setup <<<<<<<<<<
+
+50. Launch an Ubuntu EC2 Instance for Prometheus: t3.medium,  20GB of disk space (general-purpose SSD), Security Group: Allow inbound access on ports: 9090 for Prometheus Web UI, 22 for SSH access
+
+51. SSH into the EC2 Instance(optional or connect directly to ec2 server alternatively):
+ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+52. Update packages: sudo apt update && sudo apt upgrade -y
+
+53. Download Prometheus:
+wget https://github.com/prometheus/prometheus/releases/download/v2.46.0/prometheus-2.46.0.linux-amd64.tar.gz
+tar -xvzf prometheus-2.46.0.linux-amd64.tar.gz
+mv prometheus-2.46.0.linux-amd64 prometheus
+
+54. Move files to standard paths:
+sudo mv prometheus /etc/prometheus
+sudo mv /etc/prometheus/prometheus /usr/local/bin/
+
+55. Create Prometheus Configuration: 
+>> Open the file for editing: sudo nano /etc/prometheus/prometheus.yml
+>> Edit the File:
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "flask-app"
+    static_configs:
+      - targets: ["a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000"]  # Replace with your app's External IP
+
+
+
+>> Save the File: ctrl+o -> enter -> ctrl+x
+>> Verify the Changes: cat /etc/prometheus/prometheus.yml
+
+56. Locate the Prometheus Binary(Run the following command to find where the prometheus executable is installed):
+which prometheus
+This should return the full path to the prometheus binary, such as /usr/local/bin/Prometheus
+
+57. Run Prometheus with the config file:
+/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml
+
+
+
+
+>>>>>>>>>> Grafana Server Setup <<<<<<<<<<
+
+58. Launch an Ubuntu EC2 Instance for Grafana: t3.medium,  20GB of disk space (general-purpose SSD), Security Group: Allow inbound access on ports: 3000 for Grafana Web UI, 22 for SSH access
+
+59. SSH into the EC2 Instance(optional or connect directly to ec2 server alternatively):
+ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+60. Update and upgrade system packages:
+sudo apt update && sudo apt upgrade -y
+
+61. Download Grafana: wget https://dl.grafana.com/oss/release/grafana_10.1.5_amd64.deb
+(this is a stable version for now; adjust the link if necessary.)
+
+62. Install Grafana: sudo apt install ./grafana_10.1.5_amd64.deb -y
+
+63. Start the Grafana service: sudo systemctl start grafana-server
+
+64. Enable Grafana to start on boot: sudo systemctl enable grafana-server
+
+65. Verify the service is running: sudo systemctl status grafana-server
+
+66. Open Grafana web UI: http://<ec2-public-ip>:3000 (username/pass - admin)
+
+67. Add Prometheus as a Data Source: http://54.81.71.206/:9090
+    click - Save and Test | Get started with building dashboards.
+
+
+
+----------------------------------------------------------------------------------
+
+AWS Resource Cleanup:
+
+* Delete deployment - kubectl delete deployment flask-app
+* Delete service - kubectl delete service flask-app-service
+* Delete env var - kubectl delete secret capstone-secret
+* Delete EKS Cluster - eksctl delete cluster --name flask-app-cluster --region us-east-1
+* Verify Cluster Deletion - eksctl get cluster --region us-east-1
+* Delete artifacts of ECR and S3 (optional - delete ECR and S3)
+* Validate if Cloud Formation stacks are deleted.
+* Confirm service termination on AWS support chat.
+
+
+
+
+----------------------------------------------------------------------------------
+
+
+***** How Is CloudFormation Related to EKS? *****
+
+What Is CloudFormation? 
+AWS CloudFormation is a service that helps define and provision AWS infrastructure as code using templates. It automates the process of creating and managing AWS resources.
+
+How Does It Relate to EKS?
+When you run eksctl, it generates CloudFormation templates behind the scenes to create:
+1. The EKS control plane.
+2. Node groups.
+CloudFormation ensures that these resources are created and managed as a stack (a logical grouping of resources).
+
+What Is a Stack in CloudFormation?
+A CloudFormation Stack is a collection of AWS resources (like VPCs, subnets, EC2 instances, etc.) managed as a single unit. For EKS:
+1. eksctl-flask-app-cluster-cluster stack: Creates the EKS control plane.
+2. eksctl-flask-app-cluster-nodegroup-flask-app-nodes stack: Creates the worker nodes.
+
+Each stack contains:
+
+1. A template defining the resources (YAML or JSON).
+2. Resource dependencies and configurations.
+
+----------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------
+
+Fleet Requests
+Definition: A Fleet Request is an AWS internal process for provisioning EC2 instances. When creating a NodeGroup, EKS uses an Auto Scaling Group (ASG) to request EC2 instances, which count as Fleet Requests.
+
+Why Relevant?: AWS imposes a limit on the number of Fleet Requests per account. If your account exceeds this limit (e.g., due to other active ASGs or EKS clusters), NodeGroup creation fails with the error "You’ve reached your quota for maximum Fleet Requests".
+----------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------
+
+What is a PVC?
+1. PVC (PersistentVolumeClaim) is a request for storage by a Kubernetes application. It is bound to a PV (PersistentVolume), which is the actual storage resource.
+2. PVCs use StorageClasses to define how the volume should be provisioned (e.g., EBS volumes on AWS, NFS, etc.).
+3. When a pod is deployed and needs storage, it will request the storage defined in the PVC.
+
+----------------------------------------------------------------------------------
