@@ -4,7 +4,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+cre.txt
 # Distribution / packaging
 .Python
 env/
