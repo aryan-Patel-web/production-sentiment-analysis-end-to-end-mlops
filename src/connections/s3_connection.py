@@ -30,8 +30,11 @@ class s3_operations:
         """
         try:
             logging.info(f"Fetching file '{file_key}' from S3 bucket '{self.bucket_name}'...")
+
             obj = self.s3_client.get_object(Bucket=self.bucket_name, Key=file_key)
+            
             df = pd.read_csv(StringIO(obj['Body'].read().decode('utf-8')))
+
             logging.info(f"Successfully fetched and loaded '{file_key}' from S3 that has {len(df)} records.")
             return df
         except Exception as e:
