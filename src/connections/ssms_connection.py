@@ -3,6 +3,9 @@ import pandas as pd
 import json
 import os
 
+
+
+
 def main(config_path="config.json"):
     """
     Fetches data from a SQL Server table and returns it as a DataFrame.
@@ -28,6 +31,11 @@ def main(config_path="config.json"):
     database = config["sql_server"]["database"]
     table = config["sql_server"]["table"]
 
+
+
+
+
+
     print(f"Server: {server}, database: {database}, table: {table}")
 
     # Define connection string for Windows Authentication
@@ -37,6 +45,11 @@ def main(config_path="config.json"):
         f"DATABASE={database};"
         f"Trusted_Connection=yes;"
     )
+
+
+
+
+
     print(f"{connection_string}")
     
     try:
