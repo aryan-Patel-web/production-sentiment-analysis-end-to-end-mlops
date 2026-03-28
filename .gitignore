@@ -63,6 +63,7 @@ target/
 
 # DotEnv configuration
 .env
+models/
 
 # Database
 *.db
