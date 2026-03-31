@@ -63,6 +63,7 @@
 31. Add dir "tests"&"scripts" and files within. This will contain our test related scripts for CI.
 
 >>>>> Moving to Docker <<<<<
+
 32. pip install pipreqs
 33. cd flask_app & do "pipreqs . --force"
 34. Add dockerfile and start docker-desktop in background
@@ -85,9 +86,19 @@
 38. Execute CICD pipeline till the stage where we build and push image to ECR.
 
 
+
+
+
+
+
+
+
+
 ----------------------------------------------------------------------------------
 *********Setup required before moving to EKS deployment*********
 ----------------------------------------------------------------------------------
+
+
 * Run the following in PowerShell to see the AWS CLI path being used: Get-Command aws
 If the path points to your Anaconda environment (e.g., C:\Users\Personal\anaconda3\...), it’s a conflicting installation.
 
@@ -153,6 +164,14 @@ kubectl get svc flask-app-service
 
 49. Try externa-ip:5000 directly on url or on terminal : curl http://external-ip:5000
 curl http://a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000
+
+
+
+
+
+
+
+
 
 
 
