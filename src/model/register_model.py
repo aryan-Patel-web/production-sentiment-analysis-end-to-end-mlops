@@ -216,24 +216,24 @@ warnings.filterwarnings('ignore')
 
 # Below code block is for production use
 # -------------------------------------------------------------------------------------
-# dagshub_token = os.getenv("CAPSTONE_TEST")
-# if not dagshub_token:
-#     raise EnvironmentError("CAPSTONE_TEST environment variable is not set")
+dagshub_token = os.getenv("CAPSTONE_TEST")
+if not dagshub_token:
+    raise EnvironmentError("CAPSTONE_TEST environment variable is not set")
 
-# os.environ["MLFLOW_TRACKING_USERNAME"] = dagshub_token
-# os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+os.environ["MLFLOW_TRACKING_USERNAME"] = dagshub_token
+os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-# dagshub_url = "https://dagshub.com"
-# repo_owner = "aryan-Patel-web"
-# repo_name = "production-sentiment-analysis-end-to-end-mlops"
+dagshub_url = "https://dagshub.com"
+repo_owner = "aryan-Patel-web"
+repo_name = "production-sentiment-analysis-end-to-end-mlops"
 
-# mlflow.set_tracking_uri(f'{dagshub_url}/{repo_owner}/{repo_name}.mlflow')
+mlflow.set_tracking_uri(f'{dagshub_url}/{repo_owner}/{repo_name}.mlflow')
 # -------------------------------------------------------------------------------------
 
 # Below code block is for local use
 # -------------------------------------------------------------------------------------
-mlflow.set_tracking_uri('https://dagshub.com/aryan-Patel-web/production-sentiment-analysis-end-to-end-mlops.mlflow')
-dagshub.init(repo_owner='aryan-Patel-web', repo_name='production-sentiment-analysis-end-to-end-mlops', mlflow=True)
+# mlflow.set_tracking_uri('https://dagshub.com/aryan-Patel-web/production-sentiment-analysis-end-to-end-mlops.mlflow')
+# dagshub.init(repo_owner='aryan-Patel-web', repo_name='production-sentiment-analysis-end-to-end-mlops', mlflow=True)
 # -------------------------------------------------------------------------------------
 
 
