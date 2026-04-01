@@ -263,11 +263,20 @@ def register_model(model_name: str, model_info: dict) -> None:
         logging.info('Model registered: %s, version: %s', model_name, model_version.version)
 
         # Transition the model version to "Staging"
+        # client = mlflow.tracking.MlflowClient()
+        # client.transition_model_version_stage(
+        #     name=model_name,
+        #     version=model_version.version,
+        #     stage='Staging'
+        # )
+
         client = mlflow.tracking.MlflowClient()
+
         client.transition_model_version_stage(
-            name=model_name,
-            version=model_version.version,
-            stage='Staging'
+        name=model_name,
+        version=model_version.version,
+        stage='Staging',
+        archive_existing_versions=True
         )
 
         logging.info(
