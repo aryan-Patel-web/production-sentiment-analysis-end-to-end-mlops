@@ -62,6 +62,12 @@
 
 31. Add dir "tests"&"scripts" and files within. This will contain our test related scripts for CI.
 
+
+
+
+
+
+
 >>>>> Moving to Docker <<<<<
 
 32. pip install pipreqs

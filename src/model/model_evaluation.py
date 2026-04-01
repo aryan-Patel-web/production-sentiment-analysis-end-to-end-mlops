@@ -269,6 +269,15 @@
 # if __name__ == "__main__":
 #     main()
 
+
+
+
+
+
+
+
+
+
 import numpy as np
 import pandas as pd
 import pickle
@@ -406,7 +415,8 @@ def main():
                     mlflow.log_param(param_name, param_value)
 
             # Log model to MLflow
-            mlflow.sklearn.log_model(sk_model=clf, name='model')
+            # mlflow.sklearn.log_model(sk_model=clf, name='model')
+            mlflow.sklearn.log_model(clf, "model")
             logging.info('Model logged to MLflow')
 
             # Save model info
