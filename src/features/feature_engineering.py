@@ -43,6 +43,11 @@ def apply_bow(train_data: pd.DataFrame, test_data: pd.DataFrame, max_features: i
     """Apply Count Vectorizer to the data."""
     try:
         logging.info("Applying BOW...")
+
+# ✅ ADD THIS LINE (this is the fix)
+        os.makedirs("models", exist_ok=True)
+
+        # vectorizer = CountVectorizer(max_features=max_features)
         vectorizer = CountVectorizer(max_features=max_features)
 
         X_train = train_data['review'].values
