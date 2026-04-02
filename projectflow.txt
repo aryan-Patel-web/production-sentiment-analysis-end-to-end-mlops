@@ -74,8 +74,11 @@
 33. cd flask_app & do "pipreqs . --force"
 34. Add dockerfile and start docker-desktop in background
     Also before proceeding make sure: [switch the mlflow server setup to param version, change cmd on dockerfile]
+
 35. go to root dir and: "docker build -t capstone-app:latest ."
+
 36. Try running the image: "docker run -p 8888:5000 capstone-app:latest"
+
     - This run will give 'OSError: capstone_test environment variable is not set'...obviously
     - alternate: docker run -p 8888:5000 -e CAPSTONE_TEST=54b1d67648a9b1267ef906fsdfsd8b292f779f0 capstone-app:latest
     - docker push youruser/capstone-app:latest (optional)
