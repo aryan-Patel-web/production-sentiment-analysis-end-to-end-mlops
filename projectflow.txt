@@ -134,6 +134,8 @@ If the path points to your Anaconda environment (e.g., C:\Users\Personal\anacond
 * Verify eksctl: eksctl version
 ----------------------------------------------------------------------------------
 
+
+
 39. Create an EKS cluster:
     eksctl create cluster --name flask-app-cluster --region us-east-1 --nodegroup-name flask-app-nodes --node-type t3.small --nodes 1 --nodes-min 1 --nodes-max 1 --managed
 
