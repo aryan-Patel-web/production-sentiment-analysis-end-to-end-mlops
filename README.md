@@ -1,4 +1,4 @@
-# 🚀 Production Sentiment Analysis — End-to-End MLOps
+<!-- # 🚀 Production Sentiment Analysis — End-to-End MLOps
 
 <div align="center">
 
@@ -703,5 +703,969 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 **⭐ If this project helped you, please give it a star! ⭐**
 
 *Built with ❤️ as a production-grade MLOps capstone project*
+
+</div> -->
+# 🚀 Production Sentiment Analysis — End-to-End MLOps
+
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)
+![DVC](https://img.shields.io/badge/DVC-3.53.0-945DD6?logo=dvc&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-2.15.0-0194E2?logo=mlflow&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.0.3-000000?logo=flask&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)
+![AWS EKS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazon-aws&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-Dashboard-F46800?logo=grafana&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=github-actions&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5.1-F7931E?logo=scikitlearn&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-22C55E)
+
+**A fully production-grade, end-to-end NLP system that classifies movie reviews as Positive or Negative — with a complete MLOps lifecycle from raw data ingestion to live Kubernetes deployment, automated CI/CD, and real-time observability.**
+
+[Overview](#-project-overview) • [Architecture](#-system-architecture--flow) • [Folder Structure](#-folder-structure) • [Pipeline](#-dvc-ml-pipeline) • [Model](#-model-details) • [Flask API](#-flask-api--serving) • [Testing](#-testing) • [CI/CD](#-cicd--github-actions) • [EKS](#-aws-eks-deployment) • [Monitoring](#-monitoring--prometheus--grafana) • [Quick Start](#-quick-start) • [Future Features](#-future-features)
+
+</div>
+
+---
+
+## 📌 Project Overview
+
+This project implements a **production-ready IMDB Sentiment Analysis system** built on top of a complete, real-world **MLOps stack**. It is designed to mirror how ML systems are built, tested, versioned, deployed, and monitored at top engineering companies.
+
+The entire pipeline is automated — a single `git push` triggers model training, evaluation, model promotion, Docker packaging, ECR push, and Kubernetes deployment on AWS EKS.
+
+### What makes this production-grade?
+
+| Concern | Solution |
+|---|---|
+| **Reproducibility** | DVC pipeline with locked stages & S3 remote |
+| **Experiment Tracking** | MLflow hosted on DagsHub (params, metrics, artifacts) |
+| **Model Governance** | MLflow Model Registry (None → Staging → Production) |
+| **Serving** | Flask + Gunicorn REST API |
+| **Containerization** | Docker image pushed to AWS ECR |
+| **Orchestration** | AWS EKS (Kubernetes) — 2 replicas + LoadBalancer |
+| **CI/CD** | GitHub Actions (15-step automated pipeline) |
+| **Observability** | Prometheus custom metrics + Grafana dashboards |
+| **Testing** | Model load, signature, performance tests + Flask integration tests |
+| **Security** | GitHub Secrets + Kubernetes Secrets (zero hardcoded credentials) |
+
+---
+
+## 🏗 System Architecture & Flow
+
+```
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                    COMPLETE END-TO-END MLOPS ARCHITECTURE                       ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  LAYER 1 — DATA                                                                 │
+│                                                                                  │
+│  GitHub (data.csv) ──data_ingestion.py──► data/raw/ (train.csv + test.csv)     │
+│                                                   │ DVC-tracked → AWS S3        │
+│  data/raw/ ──data_preprocessing.py──► data/interim/ (cleaned CSVs)             │
+│  data/interim/ ──feature_engineering.py──► data/processed/ (BOW matrices)      │
+│                                         └──► models/vectorizer.pkl              │
+└──────────────────────────────────────────────────┬──────────────────────────────┘
+                                                   │
+┌──────────────────────────────────────────────────▼──────────────────────────────┐
+│  LAYER 2 — ML PIPELINE (DVC)                                                    │
+│                                                                                  │
+│  model_building.py ──► models/model.pkl  (LogisticRegression L1)                │
+│  model_evaluation.py ──► MLflow (DagsHub) logs metrics + artifacts             │
+│                       ──► reports/metrics.json + experiment_info.json           │
+│  register_model.py ──► MLflow Registry  stage: "Staging"                       │
+└──────────────────────────────────────────────────┬──────────────────────────────┘
+                                                   │
+┌──────────────────────────────────────────────────▼──────────────────────────────┐
+│  LAYER 3 — CI/CD (GitHub Actions on every git push)                             │
+│                                                                                  │
+│  ① checkout → ② Python 3.10 → ③ cache pip → ④ install requirements            │
+│  ⑤ dvc repro (run pipeline stages if changed)                                   │
+│  ⑥ test_model.py (load + signature + performance tests on Staging model)        │
+│  ⑦ promote_model.py (Staging → Production, archive old Production)             │
+│  ⑧ test_flask_app.py (home page + predict endpoint integration tests)           │
+│  ⑨ aws ecr login → ⑩ docker build → ⑪ docker tag + push to ECR               │
+│  ⑫ kubectl setup → ⑬ eks update-kubeconfig → ⑭ create K8s secret             │
+│  ⑮ kubectl apply -f deployment.yaml (rolling update, zero downtime)            │
+└──────────────────────────────────────────────────┬──────────────────────────────┘
+                                                   │
+┌──────────────────────────────────────────────────▼──────────────────────────────┐
+│  LAYER 4 — SERVING (AWS EKS)                                                    │
+│                                                                                  │
+│         ┌──────────────────────────────────────────────────────┐                │
+│         │           flask-app-cluster (EKS)                     │                │
+│         │  Pod #1: flask-app (gunicorn :5000)  ◄──────────────────────► User   │
+│         │  Pod #2: flask-app (gunicorn :5000)   LoadBalancer (ELB)              │
+│         │  K8s Secret: capstone-secret                          │                │
+│         │  Image: ECR .dkr.ecr.us-east-1.amazonaws.com/flask-app│               │
+│         └──────────────────────────────────────────────────────┘                │
+└──────────────────────────────────────────────────┬──────────────────────────────┘
+                                                   │
+┌──────────────────────────────────────────────────▼──────────────────────────────┐
+│  LAYER 5 — OBSERVABILITY                                                        │
+│                                                                                  │
+│  Flask /metrics ──scrape 15s──► Prometheus ──PromQL──► Grafana Dashboards      │
+│  (app_request_count, app_request_latency_seconds, model_prediction_count)       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Folder Structure
+
+```
+production-sentiment-analysis-end-to-end-mlops/
+│
+├── .dvc/                              ← DVC internal metadata
+│   ├── .gitignore
+│   └── config                         ← S3 remote storage endpoint config
+│
+├── .dvcignore                         ← Files DVC should not track
+│
+├── .github/
+│   └── workflows_stop/
+│       └── ci.yaml                    ← Full 15-step GitHub Actions CI/CD pipeline
+│
+├── .gitignore
+│
+├── data/                              ← All data (DVC-tracked, stored in AWS S3)
+│   ├── raw/
+│   │   ├── train.csv                  ← Source data split (test_size=0.19)
+│   │   └── test.csv
+│   ├── interim/
+│   │   ├── train_processed.csv        ← After URL/num/punct/stopword/lemma cleaning
+│   │   └── test_processed.csv
+│   └── processed/
+│       ├── train_bow.csv              ← CountVectorizer BOW matrix (max_features=53)
+│       └── test_bow.csv
+│
+├── docs/                              ← Sphinx documentation project
+│   ├── Makefile / make.bat
+│   ├── conf.py                        ← Sphinx config
+│   ├── index.rst
+│   ├── commands.rst
+│   └── getting-started.rst
+│
+├── flask_app/                         ← Production Flask REST API
+│   ├── app.py                         ← Routes + text preprocessing + Prometheus metrics
+│   ├── preprocessing_utility.py       ← Shared normalize_text() utility
+│   ├── load_model_test.py             ← Quick local model loading sanity check
+│   ├── requirements.txt               ← Flask-specific dependencies (Flask, gunicorn, prometheus_client...)
+│   └── templates/
+│       └── index.html                 ← Jinja2 web UI template
+│
+├── models/                            ← Serialized ML artifacts (DVC-tracked)
+│   ├── model.pkl                      ← Trained LogisticRegression classifier
+│   └── vectorizer.pkl                 ← Fitted CountVectorizer (BOW, max_features=53)
+│
+├── notebooks/                         ← Experimentation and EDA
+│   ├── IMDB.csv                       ← Raw IMDB dataset
+│   ├── data.csv                       ← Working dataset copy
+│   ├── exp1.ipynb                     ← Initial EDA and baseline model exploration
+│   ├── exp2_bow_vs_tfidf.py           ← Experiment: BOW vs TF-IDF vectorization comparison
+│   └── exp3_lor_bow_hp.py             ← Experiment: Logistic Regression hyperparameter tuning
+│
+├── references/                        ← Data dictionaries, manuals
+│
+├── reports/
+│   ├── metrics.json                   ← DVC-tracked eval metrics (accuracy/precision/recall/Auc)
+│   ├── experiment_info.json           ← MLflow run_id + model_path (used by register_model.py)
+│   └── figures/                       ← Generated plots and charts
+│
+├── scripts/
+│   └── promote_model.py               ← Archives Production model, promotes Staging → Production
+│
+├── src/                               ← Core Python package (pip install -e .)
+│   ├── __init__.py
+│   ├── connections/
+│   │   ├── __init__.py
+│   │   ├── config.json                ← Connection configuration file
+│   │   ├── s3_connection.py           ← AWS S3 fetch operations (alternative data source)
+│   │   └── ssms_connection.py         ← SQL Server connection utility
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── data_ingestion.py          ← load_data, preprocess_data, train_test_split, save_data
+│   │   └── data_preprocessing.py     ← preprocess_dataframe: URL/num/lower/punct/stop/lemma
+│   ├── features/
+│   │   ├── __init__.py
+│   │   └── feature_engineering.py    ← apply_bow (CountVectorizer), saves vectorizer.pkl
+│   ├── logger/
+│   │   └── __init__.py               ← Centralized logging setup (used across all modules)
+│   ├── model/
+│   │   ├── __init__.py
+│   │   ├── model_building.py          ← train_model (LogisticRegression), save_model
+│   │   ├── model_evaluation.py       ← evaluate_model, log to MLflow, save_model_info
+│   │   ├── predict_model.py           ← Standalone inference utility
+│   │   ├── register_model.py          ← register_model → MLflow Registry (Staging)
+│   │   └── train_model.py             ← Alternative training entry point
+│   └── visualization/
+│       ├── __init__.py
+│       └── visualize.py               ← Plotting helpers for EDA and evaluation
+│
+├── tests/
+│   ├── test_model.py                  ← 3 tests: load, input/output signature, performance (≥40%)
+│   └── test_flask_app.py              ← 2 tests: home page 200 OK, /predict returns sentiment
+│
+├── Dockerfile                         ← python:3.10-slim + gunicorn (production WSGI)
+├── LICENSE                            ← MIT License
+├── Makefile                           ← Developer shortcuts: make data, make train, make test
+├── README.md
+├── deployment.yaml                    ← K8s Deployment (2 replicas) + LoadBalancer Service
+├── dvc.lock                           ← Locked pipeline hashes (exact reproducibility)
+├── dvc.yaml                           ← DVC 6-stage pipeline definition
+├── params.yaml                        ← Centralized hyperparameters (test_size, max_features)
+├── projectflow.txt                    ← Step-by-step project implementation notes
+├── requirements.txt                   ← Full Python dependency list (pip freeze)
+├── setup.py                           ← Makes src/ pip-installable as a package
+├── test_environment.py                ← Python environment compatibility check
+└── tox.ini                            ← Tox test runner configuration
+```
+
+---
+
+## 🔄 DVC ML Pipeline
+
+The ML pipeline is defined in `dvc.yaml` and orchestrated by DVC. Each stage declares its **dependencies**, **parameters**, and **outputs** — enabling incremental execution (only re-runs changed stages) and full reproducibility via `dvc.lock`.
+
+### Pipeline DAG
+
+```
+data_ingestion
+      │
+      ▼
+data_preprocessing
+      │
+      ▼
+feature_engineering
+      │
+      ▼
+model_building
+      │
+      ▼
+model_evaluation ──► MLflow (metrics + model artifact)
+      │
+      ▼
+model_registration ──► MLflow Registry (Staging)
+```
+
+### Stage Definitions (from `dvc.yaml`)
+
+| Stage | Command | Params | Key Outputs |
+|---|---|---|---|
+| `data_ingestion` | `python -m src.data.data_ingestion` | `test_size: 0.19` | `data/raw/` |
+| `data_preprocessing` | `python -m src.data.data_preprocessing` | — | `data/interim/` |
+| `feature_engineering` | `python -m src.features.feature_engineering` | `max_features: 53` | `data/processed/`, `models/vectorizer.pkl` |
+| `model_building` | `python -m src.model.model_building` | — | `models/model.pkl` |
+| `model_evaluation` | `python -m src.model.model_evaluation` | — | `reports/metrics.json`, `reports/experiment_info.json` |
+| `model_registration` | `python -m src.model.register_model` | — | MLflow Model Registry entry |
+
+### `params.yaml`
+
+```yaml
+data_ingestion:
+  test_size: 0.19          # 19% of data held out for testing
+
+feature_engineering:
+  max_features: 53         # Vocabulary size for CountVectorizer (BOW)
+```
+
+### DVC Commands
+
+```bash
+dvc repro          # Run or resume pipeline (skips unchanged stages)
+dvc dag            # Visualize the pipeline as a DAG
+dvc status         # Check which stages are stale
+dvc params diff    # See parameter changes since last run
+dvc metrics show   # Print evaluation metrics from reports/metrics.json
+dvc push           # Upload data/artifacts to AWS S3
+dvc pull           # Download data/artifacts from AWS S3
+```
+
+---
+
+## 🧠 Model Details
+
+### Algorithm — Logistic Regression
+
+```python
+# src/model/model_building.py
+clf = LogisticRegression(C=1, solver='liblinear', penalty='l1')
+```
+
+L1 regularization (Lasso) was chosen after hyperparameter tuning (`exp3_lor_bow_hp.py`). It produces sparse weights, which is ideal for high-dimensional BOW feature spaces.
+
+### Feature Engineering — Bag of Words
+
+```python
+# src/features/feature_engineering.py
+vectorizer = CountVectorizer(max_features=53)
+X_train_bow = vectorizer.fit_transform(X_train)  # fit on train only — no leakage
+X_test_bow  = vectorizer.transform(X_test)
+pickle.dump(vectorizer, open('models/vectorizer.pkl', 'wb'))
+```
+
+> **Why BOW over TF-IDF?** Direct comparison in `notebooks/exp2_bow_vs_tfidf.py` showed BOW performed better for this dataset size and feature count.
+
+### Text Preprocessing Pipeline
+
+The same pipeline runs during training (`data_preprocessing.py`) and inference (`flask_app/app.py`) — preventing training-serving skew:
+
+```
+Raw text
+   │ 1. Remove URLs        (https://, www.)
+   │ 2. Remove digits
+   │ 3. Lowercase
+   │ 4. Remove punctuation (string.punctuation + re.sub)
+   │ 5. Remove stop words  (NLTK English stopwords)
+   │ 6. Lemmatization      (WordNetLemmatizer)
+   ▼
+Cleaned text → CountVectorizer.transform() → Feature vector → LogisticRegression.predict()
+```
+
+### Evaluation Metrics
+
+```python
+# src/model/model_evaluation.py
+metrics = {
+    'accuracy':  accuracy_score(y_test, y_pred),
+    'precision': precision_score(y_test, y_pred),
+    'recall':    recall_score(y_test, y_pred),
+    'auc':       roc_auc_score(y_test, y_pred_proba)   # uses predict_proba[:, 1]
+}
+# All 4 metrics logged to MLflow AND saved to reports/metrics.json
+```
+
+---
+
+## 📊 Experiment Tracking — MLflow + DagsHub
+
+All experiments tracked on **DagsHub's hosted MLflow** server. Authentication uses the `CAPSTONE_TEST` token as both MLflow username and password.
+
+```python
+# Production auth pattern (used in model_evaluation.py, register_model.py, app.py)
+dagshub_token = os.getenv("CAPSTONE_TEST")
+os.environ["MLFLOW_TRACKING_USERNAME"] = dagshub_token
+os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+mlflow.set_tracking_uri('https://dagshub.com/<owner>/<repo>.mlflow')
+```
+
+### MLflow Experiment: `my-dvc-pipeline`
+
+Each run logs:
+- **Parameters**: `C`, `solver`, `penalty`, `max_features`, `test_size`
+- **Metrics**: accuracy, precision, recall, AUC
+- **Artifacts**: model artifact at `runs:/<run_id>/model`, `reports/metrics.json`
+- **Model**: registered as `"my_model"` in Model Registry
+
+### Model Lifecycle
+
+```
+model_evaluation.py ──► MLflow run ──► experiment_info.json (stores run_id)
+register_model.py   ──► MLflow Registry: stage "None" → "Staging"
+promote_model.py    ──► old Production → "Archived", Staging → "Production"
+flask_app/app.py    ──► loads models:/my_model/<Production_version> at startup
+```
+
+```python
+# scripts/promote_model.py
+# Archives current production, promotes staging to production
+for version in prod_versions:
+    client.transition_model_version_stage(name=model_name, version=version.version, stage="Archived")
+
+client.transition_model_version_stage(name=model_name, version=latest_version_staging, stage="Production")
+```
+
+---
+
+## 🐳 Dockerfile — Container Build
+
+```dockerfile
+FROM python:3.10-slim           # Minimal base — reduces image size & attack surface
+
+WORKDIR /app
+
+COPY flask_app/ /app/           # Copy entire Flask application
+COPY models/vectorizer.pkl /app/models/vectorizer.pkl  # BOW vectorizer (bundled in image)
+
+RUN pip install -r requirements.txt
+
+RUN python -m nltk.downloader stopwords wordnet  # Pre-download at build time
+
+EXPOSE 5000
+
+# PRODUCTION: Gunicorn WSGI server with 120s timeout (for MLflow model loading)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "120", "app:app"]
+```
+
+**Key decisions:**
+- `python:3.10-slim` — minimal base image
+- Gunicorn `--timeout 120` — handles slow MLflow model download on first request
+- NLTK data pre-downloaded at image build time (not at container start)
+- `model.pkl` NOT bundled — loaded from MLflow Registry at startup (always gets Production version)
+- `vectorizer.pkl` IS bundled — static artifact that doesn't change between runs
+
+---
+
+## 🌐 Flask API — Serving
+
+### Routes
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/` | Web UI — renders `index.html` with input form |
+| `POST` | `/predict` | Preprocesses text → BOW → model.predict() → renders result |
+| `GET` | `/metrics` | Prometheus scrape endpoint (custom registry, plain text) |
+
+### `/predict` Full Flow
+
+```python
+@app.route("/predict", methods=["POST"])
+def predict():
+    REQUEST_COUNT.labels(method="POST", endpoint="/predict").inc()
+    start_time = time.time()
+
+    text = request.form["text"]
+    text = normalize_text(text)           # same 6-step cleaning as training
+    features = vectorizer.transform([text])
+    features_df = pd.DataFrame(features.toarray(),
+                               columns=[str(i) for i in range(features.shape[1])])
+    result = model.predict(features_df)   # mlflow.pyfunc model needs DataFrame
+    prediction = result[0]
+
+    PREDICTION_COUNT.labels(prediction=str(prediction)).inc()
+    REQUEST_LATENCY.labels(endpoint="/predict").observe(time.time() - start_time)
+
+    return render_template("index.html", result=prediction)
+```
+
+### Prometheus Instrumentation (Custom Registry)
+
+```python
+registry = CollectorRegistry()   # Custom registry — isolates app metrics
+
+REQUEST_COUNT    = Counter("app_request_count",
+                           "Total requests", ["method", "endpoint"], registry=registry)
+REQUEST_LATENCY  = Histogram("app_request_latency_seconds",
+                             "Request latency", ["endpoint"], registry=registry)
+PREDICTION_COUNT = Counter("model_prediction_count",
+                           "Predictions per class", ["prediction"], registry=registry)
+
+@app.route("/metrics")
+def metrics():
+    return generate_latest(registry), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+```
+
+---
+
+## 🧪 Testing
+
+### `tests/test_model.py` — Model Validation (runs against **Staging** model)
+
+```python
+class TestModelLoading(unittest.TestCase):
+
+    def test_model_loaded_properly(self):
+        # model object should not be None
+        self.assertIsNotNone(self.new_model)
+
+    def test_model_signature(self):
+        # verify input shape matches vectorizer vocabulary
+        self.assertEqual(input_df.shape[1], len(vectorizer.get_feature_names_out()))
+        # verify output is 1D (binary classification)
+        self.assertEqual(len(prediction.shape), 1)
+
+    def test_model_performance(self):
+        # all metrics must exceed 40% on holdout test set
+        self.assertGreaterEqual(accuracy_new,  0.40)
+        self.assertGreaterEqual(precision_new, 0.40)
+        self.assertGreaterEqual(recall_new,    0.40)
+        self.assertGreaterEqual(f1_new,        0.40)
+```
+
+Tests run against the **Staging** model before promotion — bad models are caught before reaching Production.
+
+### `tests/test_flask_app.py` — API Integration Tests
+
+```python
+class FlaskAppTests(unittest.TestCase):
+
+    def test_home_page(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'<title>Sentiment Analysis</title>', response.data)
+
+    def test_predict_page(self):
+        response = self.client.post('/predict', data=dict(text="I love this!"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(b'Positive' in response.data or b'Negative' in response.data)
+```
+
+```bash
+# Run all tests
+python -m unittest tests/test_model.py -v
+python -m unittest tests/test_flask_app.py -v
+```
+
+---
+
+## ⚙️ CI/CD — GitHub Actions
+
+**File:** `.github/workflows_stop/ci.yaml`  
+**Trigger:** Every `git push`
+
+```
+git push
+  │
+  ├─① checkout code (actions/checkout@v3)
+  ├─② setup Python 3.10 (actions/setup-python@v2)
+  ├─③ cache pip deps (keyed on requirements.txt hash)
+  ├─④ pip install -r requirements.txt
+  │
+  ├─⑤ dvc repro  [CAPSTONE_TEST]
+  │     └─ Runs all 6 pipeline stages, skips unchanged ones
+  │
+  ├─⑥ python -m unittest tests/test_model.py  [CAPSTONE_TEST]
+  │     └─ Load + signature + performance tests on Staging model
+  │
+  ├─⑦ python scripts/promote_model.py  [CAPSTONE_TEST]  (if tests pass)
+  │     └─ Archives Production, promotes Staging → Production
+  │
+  ├─⑧ python -m unittest tests/test_flask_app.py  [CAPSTONE_TEST]  (if success)
+  │     └─ Home page + /predict endpoint integration tests
+  │
+  ├─⑨ aws configure + ECR login  (if success)
+  ├─⑩ docker build -t $ECR_REPOSITORY:latest .
+  ├─⑪ docker tag + docker push → AWS ECR
+  │
+  ├─⑫ azure/setup-kubectl@v3 (install kubectl)
+  ├─⑬ aws eks update-kubeconfig --name flask-app-cluster --region us-east-1
+  ├─⑭ kubectl create secret generic capstone-secret (--dry-run=client | apply)
+  └─⑮ kubectl apply -f deployment.yaml  →  rolling update on EKS
+```
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|---|---|
+| `CAPSTONE_TEST` | DagsHub token (MLflow username + password) |
+| `AWS_ACCESS_KEY_ID` | IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret key |
+| `AWS_REGION` | e.g. `us-east-1` |
+| `AWS_ACCOUNT_ID` | 12-digit AWS account number |
+| `ECR_REPOSITORY` | ECR repo name (e.g. `flask-app`) |
+
+---
+
+## ☁️ AWS EKS Deployment
+
+### Kubernetes Manifest — `deployment.yaml`
+
+```yaml
+# Deployment — 2 replicas for high availability
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    spec:
+      containers:
+        - name: flask-app
+          image: 020866158197.dkr.ecr.us-east-1.amazonaws.com/flask-app:latest
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              memory: "256Mi"   # guaranteed minimum for scheduling
+              cpu: "250m"
+            limits:
+              memory: "512Mi"   # hard cap — pod OOMKilled if exceeded
+              cpu: "1"
+          env:
+            - name: CAPSTONE_TEST
+              valueFrom:
+                secretKeyRef:   # injected from K8s Secret — never hardcoded
+                  name: capstone-secret
+                  key: CAPSTONE_TEST
+---
+# Service — AWS ELB via LoadBalancer type
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-app-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: flask-app
+  ports:
+    - port: 5000
+      targetPort: 5000
+```
+
+### EKS Setup — Full Step-by-Step
+
+**1. Install tools:**
+```bash
+brew install awscli kubectl eksctl
+aws configure   # Access Key, Secret Key, Region: us-east-1, output: json
+```
+
+**2. Create the EKS cluster:**
+```bash
+eksctl create cluster \
+  --name flask-app-cluster \
+  --region us-east-1 \
+  --nodegroup-name standard-workers \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 4 \
+  --managed
+# Takes ~15 minutes. eksctl automatically updates ~/.kube/config
+```
+
+**3. Verify connection:**
+```bash
+kubectl get nodes
+kubectl get all
+```
+
+**4. Create Kubernetes Secret:**
+```bash
+kubectl create secret generic capstone-secret \
+  --from-literal=CAPSTONE_TEST=<your_dagshub_token>
+kubectl get secret capstone-secret   # verify
+```
+
+**5. Deploy the application:**
+```bash
+kubectl apply -f deployment.yaml
+```
+
+**6. Get the LoadBalancer URL:**
+```bash
+kubectl get service flask-app-service
+# Wait ~2 min for EXTERNAL-IP
+# Access: http://<EXTERNAL-IP>:5000
+```
+
+**7. Day-2 operations:**
+```bash
+# View pod status and logs
+kubectl get pods
+kubectl logs <pod-name> -f
+kubectl describe pod <pod-name>
+
+# Shell into a running pod
+kubectl exec -it <pod-name> -- /bin/sh
+
+# Scale replicas
+kubectl scale deployment flask-app --replicas=4
+
+# Rolling restart (picks up latest ECR image)
+kubectl rollout restart deployment/flask-app
+kubectl rollout status deployment/flask-app
+
+# Rollback to previous version
+kubectl rollout undo deployment/flask-app
+
+# View resource usage
+kubectl top pods
+kubectl top nodes
+```
+
+**8. Clean up (avoid AWS costs):**
+```bash
+eksctl delete cluster --name flask-app-cluster --region us-east-1
+```
+
+---
+
+## 📈 Monitoring — Prometheus & Grafana
+
+### Architecture
+
+```
+Flask App
+  └── GET /metrics  (plain text Prometheus exposition format)
+          │
+          │  scrape every 15s
+          ▼
+    Prometheus Server
+    (time-series TSDB, retention 15d by default)
+          │
+          │  PromQL
+          ▼
+    Grafana Dashboards
+    (panels: request rate, latency p95, prediction counts, error rate)
+```
+
+### Custom Metrics from the Flask App
+
+| Metric | Type | Labels | What it tracks |
+|---|---|---|---|
+| `app_request_count_total` | Counter | `method`, `endpoint` | Total HTTP requests by route |
+| `app_request_latency_seconds` | Histogram | `endpoint` | Request latency distribution |
+| `model_prediction_count_total` | Counter | `prediction` | Positive (1) vs Negative (0) count |
+
+Sample `/metrics` output:
+```
+app_request_count_total{endpoint="/",method="GET"} 42.0
+app_request_count_total{endpoint="/predict",method="POST"} 17.0
+app_request_latency_seconds_bucket{endpoint="/predict",le="0.1"} 14.0
+app_request_latency_seconds_bucket{endpoint="/predict",le="0.5"} 17.0
+model_prediction_count_total{prediction="1"} 10.0
+model_prediction_count_total{prediction="0"} 7.0
+```
+
+### Install Prometheus + Grafana on EKS (Helm)
+
+**1. Add Helm repo:**
+```bash
+helm repo add prometheus-community \
+  https://prometheus-community.github.io/helm-charts
+helm repo update
+```
+
+**2. Install kube-prometheus-stack (Prometheus + Grafana + AlertManager):**
+```bash
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set grafana.adminPassword=admin123
+```
+
+**3. Verify all components are running:**
+```bash
+kubectl get pods -n monitoring
+# Should see: prometheus-server, grafana, alertmanager, node-exporter, kube-state-metrics
+```
+
+**4. Access Prometheus UI:**
+```bash
+kubectl port-forward svc/prometheus-kube-prometheus-prometheus \
+  9090:9090 -n monitoring
+# Open: http://localhost:9090
+# Try: app_request_count_total in the expression browser
+```
+
+**5. Access Grafana UI:**
+```bash
+kubectl port-forward svc/prometheus-grafana \
+  3000:80 -n monitoring
+# Open: http://localhost:3000
+# Login: admin / admin123
+# Prometheus data source is pre-configured
+```
+
+**6. Scrape config for the Flask app:**
+```yaml
+additionalScrapeConfigs:
+  - job_name: 'flask-sentiment-app'
+    static_configs:
+      - targets: ['flask-app-service.default.svc.cluster.local:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+```
+
+### Key PromQL Queries for Grafana Panels
+
+```promql
+# Overall request rate (req/s)
+rate(app_request_count_total[5m])
+
+# Request rate on /predict endpoint only
+rate(app_request_count_total{endpoint="/predict"}[5m])
+
+# Median latency (p50)
+histogram_quantile(0.50, rate(app_request_latency_seconds_bucket[5m]))
+
+# 95th percentile latency (p95)
+histogram_quantile(0.95, rate(app_request_latency_seconds_bucket[5m]))
+
+# Prediction breakdown (positive vs negative)
+rate(model_prediction_count_total[5m])
+
+# Positive sentiment ratio (model drift indicator)
+rate(model_prediction_count_total{prediction="1"}[5m])
+  /
+rate(model_prediction_count_total[5m])
+```
+
+### Grafana Alerts (Recommended Setup)
+
+| Alert Name | Condition | Severity |
+|---|---|---|
+| High Latency | p95 latency > 500ms for 2+ min | Warning |
+| High Error Rate | HTTP 5xx rate > 5% | Critical |
+| No Predictions | `model_prediction_count_total` not increasing for 5 min | Warning |
+| Prediction Drift | Positive ratio < 20% or > 80% for 10 min | Warning |
+| Pod Not Running | `kube_pod_status_phase{phase="Running"} < 2` | Critical |
+
+---
+
+## 🚀 Quick Start — Run Locally
+
+**Prerequisites:** Python 3.10, Git, DVC, Docker, AWS CLI configured, DagsHub account
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/aryan-Patel-web/production-sentiment-analysis-end-to-end-mlops.git
+cd production-sentiment-analysis-end-to-end-mlops
+
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+
+pip install -e .                # Installs src/ as a Python package
+pip install -r requirements.txt
+```
+
+### 2. Set Environment Variables
+
+```bash
+export CAPSTONE_TEST=your_dagshub_token
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+### 3. Pull Data from S3
+
+```bash
+dvc pull
+```
+
+### 4. Run the Full ML Pipeline
+
+```bash
+dvc repro
+```
+
+### 5. View Metrics
+
+```bash
+dvc metrics show
+cat reports/metrics.json
+```
+
+### 6. Launch Flask App
+
+```bash
+cd flask_app
+python app.py
+# Open: http://localhost:5000
+# Metrics: http://localhost:5000/metrics
+```
+
+### 7. Run Tests
+
+```bash
+python -m unittest tests/test_model.py -v
+python -m unittest tests/test_flask_app.py -v
+```
+
+### 8. Makefile Shortcuts
+
+```bash
+make data    # Run data ingestion
+make train   # Run full DVC pipeline
+make test    # Run test suite
+```
+
+---
+
+## 🛠 Tech Stack — Complete Reference
+
+| Category | Technology | Version | Role |
+|---|---|---|---|
+| Language | Python | 3.10 | Core development |
+| ML | scikit-learn | 1.5.1 | LogisticRegression, CountVectorizer |
+| NLP | NLTK | 3.8.1 | WordNetLemmatizer, stopwords |
+| Data | pandas, numpy | 2.2.2, 1.26.4 | Data manipulation |
+| Data Versioning | DVC | 3.53.0 | Pipeline reproducibility & S3 remote |
+| Artifact Storage | AWS S3 | — | DVC remote backend |
+| Experiment Tracking | MLflow | 2.15.0 | Metrics, params, model registry |
+| Remote MLflow | DagsHub | 0.3.34 | Hosted MLflow server + Git integration |
+| API Framework | Flask | 3.0.3 | REST API |
+| WSGI Server | Gunicorn | — | Production HTTP server |
+| Monitoring | prometheus_client | — | Counter, Histogram, custom registry |
+| Containerization | Docker | — | Image packaging |
+| Container Registry | AWS ECR | — | Docker image storage |
+| Orchestration | AWS EKS | — | Managed Kubernetes |
+| K8s Tools | eksctl, kubectl | latest | Cluster provisioning & management |
+| Monitoring Stack | Prometheus | — | Metrics collection via Helm |
+| Dashboards | Grafana | — | PromQL visualization & alerting |
+| CI/CD | GitHub Actions | — | Automated pipeline |
+| Cloud | AWS (S3, ECR, EKS, ELB) | — | Full cloud infrastructure |
+| Testing | unittest | stdlib | Model validation + API tests |
+
+---
+
+## 🔐 Security Best Practices
+
+- **Zero hardcoded secrets** — all tokens/keys in GitHub Secrets, injected at runtime
+- **Kubernetes Secrets** — `CAPSTONE_TEST` token mounted from `capstone-secret` into pods
+- **Minimal base image** — `python:3.10-slim` reduces attack surface
+- **IAM least-privilege** — credentials scoped to ECR push + EKS update-kubeconfig only
+- **DRY-RUN apply** — K8s secret created with `--dry-run=client -o yaml | kubectl apply` (idempotent)
+- **ECR image scanning** — can be enabled for vulnerability detection on push
+
+---
+
+## 🗺 Future Features
+
+| Feature | Description | Priority |
+|---|---|---|
+| 🔁 **Model Drift Detection** | Evidently AI to detect input/output distribution shift in production | High |
+| ⚡ **Horizontal Pod Autoscaler** | Auto-scale pods on CPU/memory thresholds using K8s HPA | High |
+| 📦 **Helm Chart** | Package all K8s manifests as a reusable Helm chart | High |
+| 📊 **Grafana Dashboard JSON** | Pre-built importable dashboard with all 3 custom metrics | Medium |
+| 🤖 **Transformer Upgrade** | Replace BOW + LogReg with DistilBERT for higher accuracy | Medium |
+| 🔀 **A/B Model Testing** | Split traffic between two model versions (canary deployment) | Medium |
+| 🛡 **API Rate Limiting** | Flask-Limiter to protect /predict from abuse | Medium |
+| 📝 **FastAPI Migration** | Async support, auto OpenAPI docs, Pydantic request validation | Medium |
+| 🧪 **Shadow Mode** | Run new model in parallel without user impact before promotion | Low |
+| 📁 **Feature Store** | Feast integration for centralized, versioned feature management | Low |
+| 🌐 **Multi-Region EKS** | Deploy across AWS regions for global low-latency | Low |
+| 🔔 **Slack/PagerDuty Alerts** | Route Grafana critical alerts to on-call channels | Low |
+
+---
+
+## 🤝 Contributing
+
+1. Fork this repository
+2. Create your feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "feat: add your feature"`
+4. Push: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👤 Author
+
+**Aryan Patel**
+
+[![GitHub](https://img.shields.io/badge/GitHub-aryan--Patel--web-181717?logo=github&logoColor=white)](https://github.com/aryan-Patel-web)
+
+---
+
+<div align="center">
+
+**⭐ If this project helped you, please give it a star! ⭐**
+
+*Data Ingestion → BOW Features → Logistic Regression → MLflow Registry → Docker → EKS → Prometheus → Grafana*
 
 </div>
