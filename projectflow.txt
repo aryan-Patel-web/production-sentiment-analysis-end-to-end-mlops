@@ -17,6 +17,7 @@
 12. Run the exp notebooks
 13. git add - commit - push
 
+
 14. dvc init
 15. create a local folder as "local_s3" (temporary work)
 16. on terminal - "dvc remote add -d mylocal local_s3"
@@ -43,12 +44,6 @@
 
 
 
-
-
-
-
-
-
 28. Create new dir - flask_app | Inside that, add rest of the files and dir
 29. pip install flask and run the app (dvc push - to push data to S3)
 
@@ -61,10 +56,6 @@
 
 
 31. Add dir "tests"&"scripts" and files within. This will contain our test related scripts for CI.
-
-
-
-
 
 
 
@@ -103,6 +94,28 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ----------------------------------------------------------------------------------
 *********Setup required before moving to EKS deployment*********
 ----------------------------------------------------------------------------------
@@ -124,7 +137,7 @@ If the path points to your Anaconda environment (e.g., C:\Users\Personal\anacond
 * Move kubectl.exe to a directory in your system PATH, such as C:\Windows\System32: Move-Item -Path .\kubectl.exe -Destination "C:\Windows\System32"
 * Test if kubectl is properly installed: kubectl version --client
 
-
+Expand-Archive -Path .\eksctl.zip -DestinationPath .
 * Download eksctl: Invoke-WebRequest -Uri "https://github.com/weaveworks/eksctl/releases/download/v0.158.0/eksctl_Windows_amd64.zip" -OutFile "eksctl.zip"
 * Extract eksctl: Expand-Archive -Path .\eksctl.zip -DestinationPath .
 * Move the extracted eksctl.exe file to C:\Windows\System32 or any folder in your system PATH: Move-Item -Path .\eksctl.exe -Destination "C:\Windows\System32\eksctl.exe"
@@ -175,6 +188,13 @@ kubectl get svc flask-app-service
 
 49. Try externa-ip:5000 directly on url or on terminal : curl http://external-ip:5000
 curl http://a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000
+
+
+
+
+
+
+
 
 
 
@@ -259,6 +279,41 @@ sudo apt update && sudo apt upgrade -y
 
 67. Add Prometheus as a Data Source: http://54.81.71.206/:9090
     click - Save and Test | Get started with building dashboards.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

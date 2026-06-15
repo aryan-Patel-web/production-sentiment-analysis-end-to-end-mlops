@@ -98,3 +98,5 @@ target/
 
 /data/
 models/
+eksctl.exe
+eksctl.zip
